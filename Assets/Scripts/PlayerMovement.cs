@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 public class PlayerMovement : MonoBehaviour
@@ -14,9 +15,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask _groundLayerMask;
     [SerializeField] private float _raycastDistance;
 
+    private MovementState _state;
     private Vector2 _moveInput;
     private bool _requestJump;
     private float _timeSinceGround;
+
+    public Action<MovementState> OnChangeState;
+
+    public Vector2 MoveInput { get => _moveInput; }
 
     void FixedUpdate()
     {
@@ -27,13 +33,36 @@ public class PlayerMovement : MonoBehaviour
             if (Time.time < _timeSinceGround + _coyoteTime)
             {
                 _rigidbody.linearVelocityY = _jumpForce;
+                SetState(MovementState.JUMPING);
             }
         }
         if (IsGrounded())
         {
+            if (_moveInput.x == 0)
+            {
+                SetState(MovementState.IDLE);
+            }
+            else
+            {
+                SetState(MovementState.WALKING);
+            }
             _timeSinceGround = Time.time;
         }
+        else if (_rigidbody.linearVelocityY < 0)
+        {
+            SetState(MovementState.FALLING);
+        }
     }
+
+    private void SetState(MovementState state)
+    {
+        if (_state != state)
+        {
+            _state = state;
+            OnChangeState?.Invoke(state);
+        }
+    }
+
     public bool IsGrounded()
     {
         return Physics2D.Raycast(transform.position, Vector2.down, _raycastDistance, _groundLayerMask);
@@ -47,6 +76,14 @@ public class PlayerMovement : MonoBehaviour
     private void OnJump(InputValue input)
     {
         _requestJump = input.isPressed;
+    }
+
+    public enum MovementState
+    {
+        IDLE,
+        WALKING,
+        JUMPING,
+        FALLING
     }
 
 }
